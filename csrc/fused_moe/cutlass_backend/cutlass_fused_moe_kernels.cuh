@@ -1888,16 +1888,18 @@ void expandInputRowsKernelLauncher(
     if constexpr (std::is_same_v<ExpandedActivationsType, __nv_fp8_e4m3> &&
                   !std::is_same_v<InputActivationsType, __nv_fp8_e4m3>) {
       bool const use_per_token_fp8_quant = fp8_token_dequant_scale != nullptr;
+      bool const use_online_fp8_quant =
+          use_per_token_fp8_quant || act_block_scale_flat != nullptr;
       TLLM_CHECK_WITH_INFO(quant_params.mxfp8_mxfp4.fc1.weight_block_scale ||
                                quant_params.mxfp8_mxfp8.fc1.weight_block_scale || prequant_scales ||
-                               use_per_token_fp8_quant,
-                           "MXFP8 block scaling, prequant_scales or FP8 token scale output "
+                               use_online_fp8_quant,
+                           "MXFP8 block scaling, prequant_scales or online FP8 scale output "
                            "parameters not provided");
       return prequant_scales
                  ? &expandInputRowsKernel<
                        InputActivationsType, ExpandedActivationsType,
                        TmaWarpSpecializedGroupedGemmInput::FpXBlockScalingType::NONE, true>
-             : use_per_token_fp8_quant
+             : use_online_fp8_quant
                  ? &expandInputRowsKernel<
                        InputActivationsType, ExpandedActivationsType,
                        TmaWarpSpecializedGroupedGemmInput::FpXBlockScalingType::NONE, false>
