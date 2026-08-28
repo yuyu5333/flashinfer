@@ -841,6 +841,11 @@ class CutlassMoeFCRunner : public CutlassMoeFCRunnerInterface {
       void const* bias1, void const* bias2, void* gemm1_output, void* gemm2_output,
       float const* router_scales, int const* permuted_row_to_unpermuted_row, bool enable_pdl,
       cudaStream_t stream) override {
+    // Feed the per-block (K group=32) MXFP8 activation dequant scale flat buffer to both GEMMs. The
+    // static assembler only fills the per-expert pointer/stride arrays from this flat buffer when
+    // use_act_block_scale is set; it is null for every other mode so legacy paths stay unchanged.
+    layout_info1.int4_groupwise_params.act_block_scale_flat = act_block_scale_flat_;
+    layout_info2.int4_groupwise_params.act_block_scale_flat = act_block_scale_flat_;
     return Self::computeStridesTmaWarpSpecialized(
         expert_first_token_offset, layout_info1, layout_info2, num_tokens, expanded_num_tokens,
         gemm1_n, gemm1_k, gemm2_n, gemm2_k, num_experts_per_node,
@@ -1029,6 +1034,11 @@ class CutlassMoeFCRunner : public CutlassMoeFCRunnerInterface {
   TmaWarpSpecializedGroupedGemmInput::ElementSF* fc1_fp4_act_scale_;
   TmaWarpSpecializedGroupedGemmInput::ElementSF* fc2_fp4_act_scale_;
   float* act_fp8_token_scale_{};
+  // Per-block (K group=32) MXFP8 activation dequant scale for the SM90 post-MMA block-scaled path
+  // (Sm90Wfp4Afp8ScaleMode::kPostMmaMxfp8Act). Flat contiguous [expanded_num_tokens, K/32] bf16,
+  // produced during row expansion (gemm1) / activation (gemm2) and consumed by the mainloop as
+  // ptr_AS. Null for every other mode so legacy paths stay byte-identical.
+  __nv_bfloat16* act_block_scale_flat_{};
   float const** alpha_scale_ptr_array_fc1_ = nullptr;
   float const** alpha_scale_ptr_array_fc2_ = nullptr;
   ScaleBiasType* lora_input_{};

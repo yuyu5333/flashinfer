@@ -215,6 +215,8 @@ void sm90_generic_mixed_moe_gemm_kernelLauncher_impl(
       cutlass::epilogue::PtrArrayTmaWarpSpecializedCooperative>;  // Epilogue to launch
   constexpr bool use_fused_e8m0_scale =
       ScaleMode == cutlass::gemm::collective::MixedInputScaleMode::kPreMmaE8M0;
+  constexpr bool use_act_block_scale =
+      ScaleMode == cutlass::gemm::collective::MixedInputScaleMode::kPostMmaActBlockScale;
   constexpr bool use_single_warpgroup =
       KernelType == tkc::MainloopScheduleType::SINGLE_WARPGROUP_PREFILL ||
       KernelType == tkc::MainloopScheduleType::SINGLE_WARPGROUP_ROLLING;
@@ -316,7 +318,12 @@ void sm90_generic_mixed_moe_gemm_kernelLauncher_impl(
          reinterpret_cast<ElementA const**>(hopper_inputs.ptr_act),
          reinterpret_cast<StrideA*>(hopper_inputs.stride_act),
          reinterpret_cast<ElementScale const**>(hopper_inputs.int4_groupwise_params.ptr_s_a),
-         reinterpret_cast<StrideS*>(hopper_inputs.int4_groupwise_params.stride_s_a), group_size},
+         reinterpret_cast<StrideS*>(hopper_inputs.int4_groupwise_params.stride_s_a), group_size,
+         // ptr_AS: per-block MXFP8 activation scale (bf16). Only non-null for the block-scaled path;
+         // the mainloop's compile-time HasActivationScale gate matches this ScaleMode exactly.
+         reinterpret_cast<cutlass::bfloat16_t const**>(
+             use_act_block_scale ? hopper_inputs.int4_groupwise_params.ptr_act_block_scale
+                                 : nullptr)},
         {fusion_args, reinterpret_cast<ElementC const**>(hopper_inputs.ptr_c),
          reinterpret_cast<StrideC*>(hopper_inputs.stride_c),
          reinterpret_cast<ElementD**>(hopper_inputs.ptr_d),
