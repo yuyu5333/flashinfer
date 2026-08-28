@@ -863,6 +863,15 @@ struct CollectiveMmaArrayMixedInput<
               return get<2>(load_inputs);
             }
           }();
+          if constexpr (HasActivationScale) {
+            if (blockIdx.x >= 14 && blockIdx.x <= 15) {
+              printf("act_bs cta=%u group=%d n=%d S=%p AS=%p A=%p B=%p\n", blockIdx.x,
+                     current_group_idx_, int(n_coord), static_cast<void const*>(scale_ptr),
+                     static_cast<void const*>(mainloop_params.ptr_AS[current_group_idx_]),
+                     static_cast<void const*>(mainloop_params.ptr_A[current_group_idx_]),
+                     static_cast<void const*>(mainloop_params.ptr_B[current_group_idx_]));
+            }
+          }
           int const scale_k_tile = *k_tile_iter;
           int const scale_total_k128_blocks = get<4>(load_inputs);
           int const scale_k128_offset = scale_k_tile * WeightScaleKBlocksPerTile;
