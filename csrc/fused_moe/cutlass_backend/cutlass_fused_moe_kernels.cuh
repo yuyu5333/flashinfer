@@ -1444,6 +1444,18 @@ __global__ void computeStridesTmaWarpSpecializedKernel(
 
   bool const needs_zero_token_weight_desc =
       layout_info1.int4_groupwise_params.enabled || layout_info2.int4_groupwise_params.enabled;
+  auto const* fc1_weight_scale =
+      quant_params.fp8_mxfp4.fc1.weight_block_scale
+          ? reinterpret_cast<TmaWarpSpecializedGroupedGemmInput::INT4GroupwiseParams::SFA const*>(
+                quant_params.fp8_mxfp4.fc1.weight_block_scale)
+          : reinterpret_cast<TmaWarpSpecializedGroupedGemmInput::INT4GroupwiseParams::SFA const*>(
+                quant_params.groupwise.fc1.weight_scales);
+  auto const* fc2_weight_scale =
+      quant_params.fp8_mxfp4.fc2.weight_block_scale
+          ? reinterpret_cast<TmaWarpSpecializedGroupedGemmInput::INT4GroupwiseParams::SFA const*>(
+                quant_params.fp8_mxfp4.fc2.weight_block_scale)
+          : reinterpret_cast<TmaWarpSpecializedGroupedGemmInput::INT4GroupwiseParams::SFA const*>(
+                quant_params.groupwise.fc2.weight_scales);
 
   auto compute_tma_strides = [&]() {
     assert(gemm_m <= INT32_MAX);
@@ -1462,6 +1474,8 @@ __global__ void computeStridesTmaWarpSpecializedKernel(
   if (gemm_m == 0 && needs_zero_token_weight_desc) {
     layout_info1.ptr_weight[expert] = safe_inc_ptr(weights1, expert * (gemm1_n * gemm1_k));
     layout_info2.ptr_weight[expert] = safe_inc_ptr(weights2, expert * (gemm2_n * gemm2_k));
+    layout_info1.int4_groupwise_params.ptr_s_a[expert] = fc1_weight_scale;
+    layout_info2.int4_groupwise_params.ptr_s_a[expert] = fc2_weight_scale;
     // The grouped scheduler may still visit a zero-token problem while updating descriptors.
     // Keep ptr_AS valid for that path; no output is produced for this expert, so the common
     // aligned workspace base is sufficient and avoids issuing bulk copies from nullptr + offset.
@@ -1517,19 +1531,6 @@ __global__ void computeStridesTmaWarpSpecializedKernel(
                   quant_params.mxfp8_mxfp4);
   setupIfSelected(TmaWarpSpecializedGroupedGemmInput::MXFPXBlockScaledConfig{},
                   quant_params.mxfp8_mxfp8);
-
-  auto const* fc1_weight_scale =
-      quant_params.fp8_mxfp4.fc1.weight_block_scale
-          ? reinterpret_cast<TmaWarpSpecializedGroupedGemmInput::INT4GroupwiseParams::SFA const*>(
-                quant_params.fp8_mxfp4.fc1.weight_block_scale)
-          : reinterpret_cast<TmaWarpSpecializedGroupedGemmInput::INT4GroupwiseParams::SFA const*>(
-                quant_params.groupwise.fc1.weight_scales);
-  auto const* fc2_weight_scale =
-      quant_params.fp8_mxfp4.fc2.weight_block_scale
-          ? reinterpret_cast<TmaWarpSpecializedGroupedGemmInput::INT4GroupwiseParams::SFA const*>(
-                quant_params.fp8_mxfp4.fc2.weight_block_scale)
-          : reinterpret_cast<TmaWarpSpecializedGroupedGemmInput::INT4GroupwiseParams::SFA const*>(
-                quant_params.groupwise.fc2.weight_scales);
 
   computeTmaWarpSpecializedInputPointers(
       layout_info1, gemm_m, gemm1_n, gemm1_k, num_tokens_before_expert, expert, gemm1_in, weights1,
