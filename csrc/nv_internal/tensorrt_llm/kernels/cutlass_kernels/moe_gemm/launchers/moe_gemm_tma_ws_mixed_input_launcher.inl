@@ -318,17 +318,22 @@ void sm90_generic_mixed_moe_gemm_kernelLauncher_impl(
          reinterpret_cast<ElementA const**>(hopper_inputs.ptr_act),
          reinterpret_cast<StrideA*>(hopper_inputs.stride_act),
          reinterpret_cast<ElementScale const**>(hopper_inputs.int4_groupwise_params.ptr_s_a),
-         reinterpret_cast<StrideS*>(hopper_inputs.int4_groupwise_params.stride_s_a), group_size,
-         // ptr_AS: per-block MXFP8 activation scale (bf16). Only non-null for the block-scaled path;
-         // the mainloop's compile-time HasActivationScale gate matches this ScaleMode exactly.
-         reinterpret_cast<cutlass::bfloat16_t const**>(
-             use_act_block_scale ? hopper_inputs.int4_groupwise_params.ptr_act_block_scale
-                                 : nullptr)},
+         reinterpret_cast<StrideS*>(hopper_inputs.int4_groupwise_params.stride_s_a), group_size},
         {fusion_args, reinterpret_cast<ElementC const**>(hopper_inputs.ptr_c),
          reinterpret_cast<StrideC*>(hopper_inputs.stride_c),
          reinterpret_cast<ElementD**>(hopper_inputs.ptr_d),
          reinterpret_cast<StrideD*>(hopper_inputs.stride_d)},
         hw_info};
+    // ptr_AS: per-block MXFP8 activation scale (bf16). Set by name (not positionally) because the
+    // trailing mainloop-Arguments field differs across collectives sharing this launcher (the
+    // prescale collective has no ptr_AS at this slot). The if constexpr is discarded for every
+    // legacy ScaleMode, so their Args are byte-identical; only the block-scaled collective, whose
+    // Arguments declares ptr_AS as NonVoidElementActivationScale (bf16), compiles this line.
+    if constexpr (use_act_block_scale) {
+      arguments.mainloop.ptr_AS =
+          reinterpret_cast<decltype(arguments.mainloop.ptr_AS)>(
+              hopper_inputs.int4_groupwise_params.ptr_act_block_scale);
+    }
   }
 
   // Optimize tile scheduling for better L2 locality
