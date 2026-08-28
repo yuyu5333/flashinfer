@@ -386,7 +386,9 @@ void buildMinLatencyActiveExpertMaps(
   config.stream = stream;
   cudaLaunchAttribute attrs[1];
   attrs[0].id = cudaLaunchAttributeProgrammaticStreamSerialization;
-  attrs[0].val.programmaticStreamSerializationAllowed = enable_pdl;
+  // The block-scale mixed GEMM is not launched as a PDL consumer, so allowing this producer to
+  // overlap can expose partially initialized ptr_S/ptr_AS arrays to the GEMM.
+  attrs[0].val.programmaticStreamSerializationAllowed = enable_pdl && !use_act_block_scale;
   config.numAttrs = 1;
   config.attrs = attrs;
   cudaLaunchKernelEx(&config, buildMinLatencyActiveExpertMapsKernel<threads>,
