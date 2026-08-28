@@ -751,11 +751,7 @@ def generate_sm90_mixed_type_grouped_gemm_operations(is_arch_enabled):
     operations = list()
     for dtype_combo, quant_op, epi_tag, cta_shape_mnk, cga_shape in partial_args:
         is_fp8_mxfp4 = dtype_combo[0] == DataType.e4m3 and dtype_combo[1] == e2m1
-        mixed_input_scale_modes = (
-            ["pre_mma_e8m0", "post_mma_act_block_scale"]
-            if is_fp8_mxfp4
-            else ["post_mma"]
-        )
+        mixed_input_scale_mode = "pre_mma_e8m0" if is_fp8_mxfp4 else "post_mma"
 
         use_coop = cta_shape_mnk[0] >= 128
         mainloop_schedules = (
@@ -767,25 +763,22 @@ def generate_sm90_mixed_type_grouped_gemm_operations(is_arch_enabled):
             else [KernelScheduleType.TmaWarpSpecializedPingpong]
         )
         epi_schedule = EpilogueScheduleType.TmaWarpSpecializedCooperative
-        for mainloop_schedule, mixed_input_scale_mode in product(
-            mainloop_schedules, mixed_input_scale_modes
-        ):
-            operations.append(
-                TrtLlm_GemmLauncher(
-                    GemmKind.Grouped,
-                    arch,
-                    *dtype_combo,
-                    quant_op,
-                    epi_tag,
-                    cta_shape_mnk,
-                    warp_shape,
-                    stages,
-                    cga_shape,
-                    mainloop_schedule,
-                    epi_schedule,
-                    mixed_input_scale_mode=mixed_input_scale_mode,
-                )
+        for mainloop_schedule in mainloop_schedules:
+            moe_gemm_operation = TrtLlm_GemmLauncher(
+                GemmKind.Grouped,
+                arch,
+                *dtype_combo,
+                quant_op,
+                epi_tag,
+                cta_shape_mnk,
+                warp_shape,
+                stages,
+                cga_shape,
+                mainloop_schedule,
+                epi_schedule,
+                mixed_input_scale_mode=mixed_input_scale_mode,
             )
+            operations.append(moe_gemm_operation)
 
     small_k_shapes = [(128, token_tile, 128) for token_tile in [8, 16, 32, 40]]
     small_k_kernel_types = [
@@ -811,6 +804,47 @@ def generate_sm90_mixed_type_grouped_gemm_operations(is_arch_enabled):
                     EpilogueScheduleType.TmaWarpSpecializedCooperative,
                     mixed_input_scale_mode="pre_mma_e8m0",
                     sm90_mixed_input_kernel_type=kernel_type,
+                )
+            )
+
+    # Append the activation-block-scale variants after all existing operations so
+    # adding this mode does not reshuffle the generated translation units above.
+    block_scale_args = product(
+        [
+            dtype_combo
+            for dtype_combo in supported_dtypes_fp4
+            if dtype_combo[0] == DataType.e4m3
+        ],
+        quant_ops,
+        epi_tags,
+        cta_shapes_mnk_fp4,
+        cga_shapes,
+    )
+    for dtype_combo, quant_op, epi_tag, cta_shape_mnk, cga_shape in block_scale_args:
+        use_coop = cta_shape_mnk[0] >= 128
+        mainloop_schedules = (
+            [
+                KernelScheduleType.TmaWarpSpecializedCooperative,
+                KernelScheduleType.TmaWarpSpecializedPingpong,
+            ]
+            if use_coop
+            else [KernelScheduleType.TmaWarpSpecializedPingpong]
+        )
+        for mainloop_schedule in mainloop_schedules:
+            operations.append(
+                TrtLlm_GemmLauncher(
+                    GemmKind.Grouped,
+                    arch,
+                    *dtype_combo,
+                    quant_op,
+                    epi_tag,
+                    cta_shape_mnk,
+                    warp_shape,
+                    stages,
+                    cga_shape,
+                    mainloop_schedule,
+                    EpilogueScheduleType.TmaWarpSpecializedCooperative,
+                    mixed_input_scale_mode="post_mma_act_block_scale",
                 )
             )
     return operations
