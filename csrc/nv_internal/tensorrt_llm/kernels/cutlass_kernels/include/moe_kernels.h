@@ -727,6 +727,7 @@ class CutlassMoeFCRunner : public CutlassMoeFCRunnerInterface {
                     float const* const fc2_fp8_quant, float* const act_fp8_token_scale,
                     TmaWarpSpecializedGroupedGemmInput::ElementSF const* fc1_fp4_act_flat,
                     TmaWarpSpecializedGroupedGemmInput::ElementSF* fc2_fp4_act_flat,
+                    __nv_bfloat16* act_block_scale_flat,
                     QuantParams quant_params, int64_t const num_rows,
                     int64_t const expanded_num_rows, int64_t const hidden_size,
                     int64_t const inter_size, int const num_experts_per_node,

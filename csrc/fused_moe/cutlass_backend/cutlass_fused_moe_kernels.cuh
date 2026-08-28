@@ -3552,6 +3552,7 @@ void CutlassMoeFCRunner<
                    float const* const fc2_fp8_quant, float* const act_fp8_token_scale,
                    TmaWarpSpecializedGroupedGemmInput::ElementSF const* fc1_fp4_act_flat,
                    TmaWarpSpecializedGroupedGemmInput::ElementSF* fc2_fp4_act_flat,
+                   __nv_bfloat16* act_block_scale_flat,
                    QuantParams quant_params, int64_t const num_rows,
                    int64_t const expanded_num_rows, int64_t const hidden_size,
                    int64_t const inter_size, int const num_experts_per_node,
@@ -3654,7 +3655,7 @@ void CutlassMoeFCRunner<
     // inter_size, and the flat buffer is sized to max(hidden_size, inter_size) so it is reused.
     __nv_bfloat16* gemm2_act_block_scale_flat = nullptr;
     if constexpr (use_wfp4afp8 && Sm90Wfp4Afp8Mode == Sm90Wfp4Afp8ScaleMode::kPostMmaMxfp8Act) {
-      gemm2_act_block_scale_flat = act_block_scale_flat_;
+      gemm2_act_block_scale_flat = act_block_scale_flat;
     }
 
     doActivation<GatedActOutputType, UnfusedGemmOutputType>(
@@ -4378,6 +4379,7 @@ void CutlassMoeFCRunner<
                 fc1_int_scales, fc1_fp8_dequant,
                 use_wfp4afp8 ? fc2_wfp4afp8_quant_scale : fc2_fp8_quant, act_fp8_token_scale_,
                 input_sf /*input fp4 scale or expanded fp4 scale*/, fc2_fp4_act_scale_,
+                act_block_scale_flat_,
                 quant_params, num_rows, expanded_num_rows, hidden_size, inter_size,
                 num_experts_per_node, fc1_activation_type, alpha_scale_ptr_array_fc1_, !use_lora,
                 stream, *gemm1_config_, true, min_latency_params.num_active_experts_per_node,
@@ -4508,8 +4510,9 @@ void CutlassMoeFCRunner<
                 humming_permuted_token_selected_experts, gemm1_tma_ws_input, fc1_expert_weights,
                 fc1_expert_biases, num_valid_tokens_ptr, fc1_int_scales, fc1_fp8_dequant,
                 use_wfp4afp8 ? fc2_wfp4afp8_quant_scale : fc2_fp8_quant, act_fp8_token_scale_,
-                fc1_fp4_act_scale_, fc2_fp4_act_scale_, quant_params, num_rows, expanded_num_rows,
-                hidden_size, inter_size, num_experts_per_node, fc1_activation_type,
+                fc1_fp4_act_scale_, fc2_fp4_act_scale_, act_block_scale_flat_, quant_params,
+                num_rows, expanded_num_rows, hidden_size, inter_size, num_experts_per_node,
+                fc1_activation_type,
                 alpha_scale_ptr_array_fc1_, !use_lora, stream, *gemm1_config_, false, nullptr,
                 nullptr, enable_pdl);
     sync_check_cuda_error(stream);
