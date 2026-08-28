@@ -1462,6 +1462,17 @@ __global__ void computeStridesTmaWarpSpecializedKernel(
   if (gemm_m == 0 && needs_zero_token_weight_desc) {
     layout_info1.ptr_weight[expert] = safe_inc_ptr(weights1, expert * (gemm1_n * gemm1_k));
     layout_info2.ptr_weight[expert] = safe_inc_ptr(weights2, expert * (gemm2_n * gemm2_k));
+    // The grouped scheduler may still visit a zero-token problem while updating descriptors.
+    // Keep ptr_AS valid for that path; no output is produced for this expert, so the common
+    // aligned workspace base is sufficient and avoids issuing bulk copies from nullptr + offset.
+    if (layout_info1.int4_groupwise_params.use_act_block_scale) {
+      layout_info1.int4_groupwise_params.ptr_act_block_scale[expert] =
+          layout_info1.int4_groupwise_params.act_block_scale_flat;
+    }
+    if (layout_info2.int4_groupwise_params.use_act_block_scale) {
+      layout_info2.int4_groupwise_params.ptr_act_block_scale[expert] =
+          layout_info2.int4_groupwise_params.act_block_scale_flat;
+    }
   }
 
   // Skip expensive stride/pointer/SF setup for experts with no assigned tokens.
