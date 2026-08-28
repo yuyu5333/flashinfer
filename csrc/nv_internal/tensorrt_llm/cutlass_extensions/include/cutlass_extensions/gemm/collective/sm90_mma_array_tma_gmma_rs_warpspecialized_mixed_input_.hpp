@@ -852,7 +852,17 @@ struct CollectiveMmaArrayMixedInput<
         // Nothing extra to do.
       } else if constexpr (ModeHasScales) {
         if (cute::elect_one_sync()) {
-          auto scale_ptr = get<2>(load_inputs);
+          // The initial precomputed-scheduler tile can enter load() before
+          // tensors_perform_update() replaces load_init()'s null scale pointer. The block-scale
+          // mode already indexes ptr_AS by current_group_idx_, so fetch its weight scale the same
+          // way. Legacy modes retain the original cached load_inputs path.
+          auto scale_ptr = [&]() {
+            if constexpr (HasActivationScale) {
+              return mainloop_params.ptr_S[current_group_idx_];
+            } else {
+              return get<2>(load_inputs);
+            }
+          }();
           int const scale_k_tile = *k_tile_iter;
           int const scale_total_k128_blocks = get<4>(load_inputs);
           int const scale_k128_offset = scale_k_tile * WeightScaleKBlocksPerTile;
