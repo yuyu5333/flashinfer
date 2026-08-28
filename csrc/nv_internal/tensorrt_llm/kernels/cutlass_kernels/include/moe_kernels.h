@@ -784,10 +784,10 @@ class CutlassMoeFCRunner : public CutlassMoeFCRunnerInterface {
                        static_cast<ScaleBiasType const*>(fc1_expert_biases), num_valid_tokens_ptr,
                        static_cast<ScaleBiasType const*>(fc1_int_scales), fc1_fp8_dequant,
                        fc2_fp8_quant, act_fp8_token_scale, fc1_fp4_act_flat, fc2_fp4_act_flat,
-                       quant_params, num_rows, expanded_num_rows, hidden_size, inter_size,
-                       num_experts_per_node, fc1_activation_type, alpha_scale_ptr_array,
-                       bias_is_broadcast, stream, config, min_latency_mode, num_active_experts_per,
-                       active_expert_global_ids, enable_pdl);
+                       act_block_scale_flat_, quant_params, num_rows, expanded_num_rows, hidden_size,
+                       inter_size, num_experts_per_node, fc1_activation_type,
+                       alpha_scale_ptr_array, bias_is_broadcast, stream, config, min_latency_mode,
+                       num_active_experts_per, active_expert_global_ids, enable_pdl);
   }
 
   void gemm2(void const* const input, void* const gemm_output, void* const final_output,
