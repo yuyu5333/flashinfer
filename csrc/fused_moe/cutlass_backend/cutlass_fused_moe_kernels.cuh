@@ -3902,7 +3902,8 @@ void CutlassMoeFCRunner<T, WeightType, OutputType, InputType, BackBoneType, IsMX
                       static_cast<ScaleBiasType const*>(fc2_lora), false, expert_first_token_offset,
                       /*permuted_token_selected_experts=*/nullptr, num_experts_per_node,
                       hidden_size, expanded_num_rows, ActivationParams(ActivationType::Identity),
-                      {}, false, nullptr, nullptr, nullptr, enable_pdl, stream);
+                      {}, false, nullptr, nullptr, nullptr, enable_pdl, stream,
+                      /*act_block_scale_flat=*/nullptr);
     sync_check_cuda_error(stream);
   }
 
