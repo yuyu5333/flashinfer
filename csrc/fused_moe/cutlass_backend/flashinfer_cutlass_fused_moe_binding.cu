@@ -318,6 +318,18 @@ class FusedMoeRunner : public tvm::ffi::ModuleObj {
     // Get tactics for both GEMM1 and GEMM2, combine them
     auto gemm1_tactics = mKernelRunner->getTactics(kernels::MoeGemmId::GEMM_1);
     auto gemm2_tactics = mKernelRunner->getTactics(kernels::MoeGemmId::GEMM_2);
+    if (mSm90Wfp4Afp8Mode == kernels::Sm90Wfp4Afp8ScaleMode::kPostMmaMxfp8Act) {
+      auto erase_unaligned_tile_k = [](auto& tactics) {
+        tactics.erase(
+            std::remove_if(tactics.begin(), tactics.end(), [](auto const& profile) {
+              return std::get<2>(tensorrt_llm::cutlass_extensions::enum_to_shape_tuple(
+                         profile.tile_config_sm90)) < 256;
+            }),
+            tactics.end());
+      };
+      erase_unaligned_tile_k(gemm1_tactics);
+      erase_unaligned_tile_k(gemm2_tactics);
+    }
     mGemm1TacticCount = static_cast<int64_t>(gemm1_tactics.size());
     mGemm2TacticCount = static_cast<int64_t>(gemm2_tactics.size());
     mAllProfiles = gemm1_tactics;
