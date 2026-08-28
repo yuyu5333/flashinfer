@@ -817,7 +817,11 @@ def generate_sm90_mixed_type_grouped_gemm_operations(is_arch_enabled):
         ],
         quant_ops,
         epi_tags,
-        cta_shapes_mnk_fp4,
+        [
+            cta_shape_mnk
+            for cta_shape_mnk in cta_shapes_mnk_fp4
+            if (cta_shape_mnk[2] // 32) * DataTypeSize[DataType.bf16] % 128 == 0
+        ],
         cga_shapes,
     )
     for dtype_combo, quant_op, epi_tag, cta_shape_mnk, cga_shape in block_scale_args:
