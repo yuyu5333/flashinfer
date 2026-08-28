@@ -408,6 +408,7 @@ struct CollectiveMmaArrayMixedInput<
       cute::ArrayEngine<WeightScaleRawElement, scale_elements> smem_scale;
       // Per-block MXFP8 activation (B-operand) scale. Zero-sized (compiles away) unless
       // HasActivationScale; delivered by SM90_BULK_COPY_G2S alongside the weight scale.
+      CUTE_ALIGNAS(16)
       cute::ArrayEngine<NonVoidElementActivationScale, ActScaleSmemElements> smem_activation_scale;
     } tensors;
 
