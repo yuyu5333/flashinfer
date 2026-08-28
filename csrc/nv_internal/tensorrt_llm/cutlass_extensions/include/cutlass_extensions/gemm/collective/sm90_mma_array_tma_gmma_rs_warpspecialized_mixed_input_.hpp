@@ -369,9 +369,6 @@ struct CollectiveMmaArrayMixedInput<
 
   int current_group_idx_ = 0;
   cute::TmaDescriptor const* current_tma_desc_b_ = nullptr;
-  // Per-expert base pointer of the per-block MXFP8 activation scale (B operand). Set alongside
-  // current_tma_desc_b_ in tensors_perform_update; only touched when HasActivationScale.
-  NonVoidElementActivationScale const* current_act_scale_ptr_ = nullptr;
 
  public:
   static constexpr ConversionMode KernelConversionMode = get_conversion_mode();
@@ -889,7 +886,11 @@ struct CollectiveMmaArrayMixedInput<
           // mixed_input_utils::compute_tma_transaction_bytes_extra() folded into the barrier
           // (BLK_N * chunks * 2B), otherwise the consumer wait deadlocks.
           if constexpr (HasActivationScale) {
-            auto const* act_scale_base = current_act_scale_ptr_;
+            // Read ptr_AS directly for the current group. The scheduler can enter load() for its
+            // initial group before tensors_perform_update() has populated the cached pointer.
+            auto const* act_scale_base =
+                (mainloop_params.ptr_AS != nullptr) ? mainloop_params.ptr_AS[current_group_idx_]
+                                                    : nullptr;
             if (act_scale_base != nullptr) {
               // total K/32 chunks per token = (K/128) * (128/32)
               int const act_total_k_chunks =
@@ -1517,10 +1518,6 @@ struct CollectiveMmaArrayMixedInput<
       [[maybe_unused]] ProblemShape_MNKL problem_shape_mnkl, int32_t next_batch) {
     current_group_idx_ = next_batch;
     current_tma_desc_b_ = mainloop_params.ptr_B_prebuilt_tma_descs + next_batch;
-    if constexpr (HasActivationScale) {
-      current_act_scale_ptr_ =
-          (mainloop_params.ptr_AS != nullptr) ? mainloop_params.ptr_AS[next_batch] : nullptr;
-    }
     if constexpr (KernelConversionMode == ConversionMode::ConvertAndScale) {
       return cute::make_tuple(get<0>(input_tensors), get<1>(input_tensors),
                               mainloop_params.ptr_S[next_batch], get<3>(input_tensors),
