@@ -1538,6 +1538,14 @@ __global__ void computeStridesTmaWarpSpecializedKernel(
   computeTmaWarpSpecializedInputPointers(
       layout_info2, gemm_m, gemm2_n, gemm2_k, num_tokens_before_expert, expert, gemm2_in, weights2,
       fc2_weight_scale, bias2, gemm2_output, router_scales, permuted_row_to_unpermuted_row, expert);
+  if (layout_info1.int4_groupwise_params.use_act_block_scale && expert == 0) {
+    printf("stride_bs S1=%p AS1=%p S2=%p AS2=%p flat=%p\n",
+           static_cast<void const*>(layout_info1.int4_groupwise_params.ptr_s_a[0]),
+           static_cast<void const*>(layout_info1.int4_groupwise_params.ptr_act_block_scale[0]),
+           static_cast<void const*>(layout_info2.int4_groupwise_params.ptr_s_a[0]),
+           static_cast<void const*>(layout_info2.int4_groupwise_params.ptr_act_block_scale[0]),
+           static_cast<void const*>(layout_info1.int4_groupwise_params.act_block_scale_flat));
+  }
 #if (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 900))
   cudaTriggerProgrammaticLaunchCompletion();
 #endif
@@ -4643,7 +4651,7 @@ CutlassMoeFCRunner<T, WeightType, OutputType, InputType, BackBoneType, IsMXFPX, 
                      quant_params, bias1, bias2, gemm1_output, gemm2_output, router_scales,
                      permuted_row_to_unpermuted_row);
   if constexpr (use_act_block_scale) {
-    sync_check_cuda_error(stream);
+    TLLM_CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   return std::make_pair(layout_info1, layout_info2);
