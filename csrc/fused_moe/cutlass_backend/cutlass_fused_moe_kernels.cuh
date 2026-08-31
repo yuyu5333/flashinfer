@@ -3622,6 +3622,13 @@ void CutlassMoeFCRunner<
       alpha_scale_ptr_array = computeFP8DequantScale(alpha_scale_ptr_array, num_experts_per_node,
                                                      quant_params.groupwise.fc1.alpha, stream);
     }
+    if constexpr (use_wfp4afp8 &&
+                  Sm90Wfp4Afp8Mode == Sm90Wfp4Afp8ScaleMode::kPostMmaMxfp8Act) {
+      alpha_scale_ptr_array =
+          computeFP8DequantScale(alpha_scale_ptr_array, num_experts_per_node,
+                                 quant_params.fp8_mxfp4.fc1.global_scale, stream);
+      TLLM_CHECK(alpha_scale_ptr_array != nullptr);
+    }
     if constexpr (use_wfp4afp8 && Sm90Wfp4Afp8Mode == Sm90Wfp4Afp8ScaleMode::kHummingPreMmaE8M0) {
       TLLM_CHECK(alpha_scale_ptr_array != nullptr);
     }
@@ -3875,6 +3882,13 @@ void CutlassMoeFCRunner<T, WeightType, OutputType, InputType, BackBoneType, IsMX
   if (use_w4afp8) {
     alpha_scale_ptr_array = computeFP8DequantScale(alpha_scale_ptr_array, num_experts_per_node,
                                                    quant_params.groupwise.fc2.alpha, stream);
+  }
+  if constexpr (use_wfp4afp8 &&
+                Sm90Wfp4Afp8Mode == Sm90Wfp4Afp8ScaleMode::kPostMmaMxfp8Act) {
+    alpha_scale_ptr_array =
+        computeFP8DequantScale(alpha_scale_ptr_array, num_experts_per_node,
+                               quant_params.fp8_mxfp4.fc2.global_scale, stream);
+    TLLM_CHECK(alpha_scale_ptr_array != nullptr);
   }
   if constexpr (use_wfp4afp8 && Sm90Wfp4Afp8Mode == Sm90Wfp4Afp8ScaleMode::kHummingPreMmaE8M0) {
     TLLM_CHECK(alpha_scale_ptr_array != nullptr);
