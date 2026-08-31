@@ -4611,10 +4611,6 @@ CutlassMoeFCRunner<T, WeightType, OutputType, InputType, BackBoneType, IsMXFPX, 
       use_wfp4afp8 && Sm90Wfp4Afp8Mode == Sm90Wfp4Afp8ScaleMode::kPostMmaMxfp8Act;
   layout_info1.int4_groupwise_params.use_act_block_scale = use_act_block_scale;
   layout_info2.int4_groupwise_params.use_act_block_scale = use_act_block_scale;
-  if constexpr (use_act_block_scale) {
-    layout_info1.int4_groupwise_params.act_block_scale_flat = act_block_scale_flat_;
-    layout_info2.int4_groupwise_params.act_block_scale_flat = act_block_scale_flat_;
-  }
 
   layout_info1.fpX_block_scaling_type = getScalingType();
   layout_info2.fpX_block_scaling_type = getScalingType();
@@ -4759,6 +4755,11 @@ CutlassMoeFCRunner<T, WeightType, OutputType, InputType, BackBoneType, IsMXFPX, 
     }
 
     TLLM_CHECK_WITH_INFO(gemm1_input != gemm1_output, "Input and output buffers are overlapping");
+    if constexpr (use_wfp4afp8 &&
+                  Sm90Wfp4Afp8Mode == Sm90Wfp4Afp8ScaleMode::kPostMmaMxfp8Act) {
+      gemm1_tma_ws_input.int4_groupwise_params.act_block_scale_flat = act_block_scale_flat_;
+      gemm2_tma_ws_input.int4_groupwise_params.act_block_scale_flat = act_block_scale_flat_;
+    }
     return Self::computeStridesTmaWarpSpecialized(
         expert_first_token_offset_, gemm1_tma_ws_input, gemm2_tma_ws_input, num_rows,
         expanded_num_rows, fc1_out_size, hidden_size, hidden_size, inter_size, num_experts_per_node,
