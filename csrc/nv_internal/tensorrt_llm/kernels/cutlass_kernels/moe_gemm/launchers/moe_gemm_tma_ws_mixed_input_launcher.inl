@@ -279,14 +279,15 @@ void sm90_generic_mixed_moe_gemm_kernelLauncher_impl(
     fusion_args.token_scale_default = ElementAccumulator(1);
     fusion_args.token_scale_ptr_array = inputs.alpha_scales;
   } else {
-    fusion_args.alpha = use_mxfp4_weight ? 1 : 0;
+    constexpr bool use_epilogue_alpha = !use_mxfp4_weight || use_act_block_scale;
+    fusion_args.alpha = use_epilogue_alpha ? 0 : 1;
     fusion_args.beta = 0;
     fusion_args.alpha_ptr = nullptr;
     fusion_args.beta_ptr = nullptr;
-    fusion_args.alpha_ptr_array = use_mxfp4_weight ? nullptr : inputs.alpha_scales;
+    fusion_args.alpha_ptr_array = use_epilogue_alpha ? inputs.alpha_scales : nullptr;
     fusion_args.beta_ptr_array = nullptr;
     // One alpha and beta per each group
-    fusion_args.dAlpha = {cute::_0{}, cute::_0{}, use_mxfp4_weight ? 0 : 1};
+    fusion_args.dAlpha = {cute::_0{}, cute::_0{}, use_epilogue_alpha ? 1 : 0};
     fusion_args.dBeta = {cute::_0{}, cute::_0{}, use_mxfp4_weight ? 0 : 1};
   }
 
