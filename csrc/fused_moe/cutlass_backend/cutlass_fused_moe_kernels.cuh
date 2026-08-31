@@ -4642,6 +4642,9 @@ CutlassMoeFCRunner<T, WeightType, OutputType, InputType, BackBoneType, IsMXFPX, 
                      alpha_scale_flat1, alpha_scale_flat2, fp4_act_flat1, fp4_act_flat2,
                      quant_params, bias1, bias2, gemm1_output, gemm2_output, router_scales,
                      permuted_row_to_unpermuted_row);
+  if constexpr (use_act_block_scale) {
+    sync_check_cuda_error(stream);
+  }
 
   return std::make_pair(layout_info1, layout_info2);
 }
