@@ -1538,14 +1538,6 @@ __global__ void computeStridesTmaWarpSpecializedKernel(
   computeTmaWarpSpecializedInputPointers(
       layout_info2, gemm_m, gemm2_n, gemm2_k, num_tokens_before_expert, expert, gemm2_in, weights2,
       fc2_weight_scale, bias2, gemm2_output, router_scales, permuted_row_to_unpermuted_row, expert);
-  if (layout_info1.int4_groupwise_params.use_act_block_scale && expert == 0) {
-    printf("stride_bs S1=%p AS1=%p S2=%p AS2=%p flat=%p\n",
-           static_cast<void const*>(layout_info1.int4_groupwise_params.ptr_s_a[0]),
-           static_cast<void const*>(layout_info1.int4_groupwise_params.ptr_act_block_scale[0]),
-           static_cast<void const*>(layout_info2.int4_groupwise_params.ptr_s_a[0]),
-           static_cast<void const*>(layout_info2.int4_groupwise_params.ptr_act_block_scale[0]),
-           static_cast<void const*>(layout_info1.int4_groupwise_params.act_block_scale_flat));
-  }
 #if (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 900))
   cudaTriggerProgrammaticLaunchCompletion();
 #endif
@@ -4619,6 +4611,10 @@ CutlassMoeFCRunner<T, WeightType, OutputType, InputType, BackBoneType, IsMXFPX, 
       use_wfp4afp8 && Sm90Wfp4Afp8Mode == Sm90Wfp4Afp8ScaleMode::kPostMmaMxfp8Act;
   layout_info1.int4_groupwise_params.use_act_block_scale = use_act_block_scale;
   layout_info2.int4_groupwise_params.use_act_block_scale = use_act_block_scale;
+  if constexpr (use_act_block_scale) {
+    layout_info1.int4_groupwise_params.act_block_scale_flat = act_block_scale_flat_;
+    layout_info2.int4_groupwise_params.act_block_scale_flat = act_block_scale_flat_;
+  }
 
   layout_info1.fpX_block_scaling_type = getScalingType();
   layout_info2.fpX_block_scaling_type = getScalingType();
@@ -4639,9 +4635,7 @@ CutlassMoeFCRunner<T, WeightType, OutputType, InputType, BackBoneType, IsMXFPX, 
   config.stream = stream;
   cudaLaunchAttribute attrs[1];
   attrs[0].id = cudaLaunchAttributeProgrammaticStreamSerialization;
-  // The block-scale mixed GEMM is not launched as a PDL consumer, so allowing this producer to
-  // overlap can expose partially initialized ptr_S/ptr_AS arrays to the GEMM.
-  attrs[0].val.programmaticStreamSerializationAllowed = enable_pdl && !use_act_block_scale;
+  attrs[0].val.programmaticStreamSerializationAllowed = enable_pdl;
   config.numAttrs = 1;
   config.attrs = attrs;
   cudaLaunchKernelEx(&config, kernel_instance, expert_first_token_offset, layout_info1,
@@ -4650,10 +4644,6 @@ CutlassMoeFCRunner<T, WeightType, OutputType, InputType, BackBoneType, IsMXFPX, 
                      alpha_scale_flat1, alpha_scale_flat2, fp4_act_flat1, fp4_act_flat2,
                      quant_params, bias1, bias2, gemm1_output, gemm2_output, router_scales,
                      permuted_row_to_unpermuted_row);
-  if constexpr (use_act_block_scale) {
-    TLLM_CUDA_CHECK(cudaStreamSynchronize(stream));
-  }
-
   return std::make_pair(layout_info1, layout_info2);
 }
 

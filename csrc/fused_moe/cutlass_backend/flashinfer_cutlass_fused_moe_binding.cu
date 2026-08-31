@@ -1287,7 +1287,7 @@ class FusedMoeRunner : public tvm::ffi::ModuleObj {
           static_cast<float const*>(fc2_act_global.data_ptr()),
           static_cast<TmaWarpSpecializedGroupedGemmInput::ElementSF*>(fc2_weight_block.data_ptr()),
           static_cast<float const*>(fc2_global.data_ptr()), false, fc2_act_global.ndim() == 1);
-    } else if (isWMxfp4AFp8HummingQuant()) {
+    } else if (isWMxfp4AFp8HummingQuant() || isWMxfp4AMxfp8HummingQuant()) {
       TVM_FFI_ICHECK(quant_scales.has_value())
           << "Expecting quant scales for Humming-style MXFP4 x FP8 quantization";
       TVM_FFI_ICHECK_EQ(quant_scales.value().size(), 5)
