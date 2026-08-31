@@ -959,7 +959,14 @@ struct CollectiveMmaArrayMixedInput<
     if constexpr (cute::is_same_v<ElementA, cutlass::float_e2m1_t>) {
       cutlass::float_ue8m0_t scale_ue8m0 = scale;
 
-      uint32_t temp = static_cast<uint32_t>(scale_ue8m0.storage) << 23;
+      // Humming stores a local exponent offset o (1..12), not a raw UE8M0 exponent. Its pre-MMA
+      // FP4->E4M3 conversion is exactly equivalent to multiplying the rewritten FP4 value by
+      // 2^(o-6). The expert residual and the existing epilogue x64 compensation supply the
+      // remaining global exponent.
+      uint32_t const exponent =
+          HasActivationScale ? static_cast<uint32_t>(scale_ue8m0.storage) + 121u
+                             : static_cast<uint32_t>(scale_ue8m0.storage);
+      uint32_t temp = exponent << 23;
       return cutlass::detail::copy_bits<uint32_t, float>(temp);
     } else {
       return static_cast<float>(scale);
