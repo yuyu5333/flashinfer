@@ -1489,6 +1489,13 @@ __global__ void computeStridesTmaWarpSpecializedKernel(
     }
   }
 
+  // Standard grouped epilogues may load per-group alpha while traversing an empty problem.
+  // Initialize every slot before the zero-token early return, just like the weight/scale pointers.
+  if (alpha_scale_flat1 && alpha_scale_flat2) {
+    layout_info1.alpha_scale_ptr_array[expert] = alpha_scale_flat1 + expert;
+    layout_info2.alpha_scale_ptr_array[expert] = alpha_scale_flat2 + expert;
+  }
+
   // Skip expensive stride/pointer/SF setup for experts with no assigned tokens.
   // All problem shapes (including int4_groupwise) are initialized above so CUTLASS
   // can correctly traverse the problem list. For groupwise W4 paths, weight
@@ -1502,11 +1509,6 @@ __global__ void computeStridesTmaWarpSpecializedKernel(
     cudaTriggerProgrammaticLaunchCompletion();
 #endif
     return;
-  }
-
-  if (alpha_scale_flat1 && alpha_scale_flat2) {
-    layout_info1.alpha_scale_ptr_array[expert] = alpha_scale_flat1 + expert;
-    layout_info2.alpha_scale_ptr_array[expert] = alpha_scale_flat2 + expert;
   }
 
   auto setupIfSelected = [&](auto bs_config, auto quant_type) {
